@@ -23,9 +23,6 @@ import org.springframework.messaging.MessageChannel;
 @IntegrationComponentScan
 public class Config {
 
-    @Autowired
-    private AmqpTemplate amqpTemplate;
-
     @Bean
     public CachingConnectionFactory rabbitConnectionFactory() {
         CachingConnectionFactory cachingConnectionFactory = new CachingConnectionFactory();
@@ -50,7 +47,7 @@ public class Config {
                 .poller(Pollers.fixedRate(1000).maxMessagesPerPoll(5))
                 .autoStartup(true)
         ).channel("consoleOutputChannel")
-                .handle(Amqp.outboundAdapter(amqpTemplate)
+                .handle(Amqp.outboundAdapter(amqpTemplate())
                         .exchangeNameFunction(message -> {
                             if ("nack".equals(message.getPayload())) {
                                 return "bad_exchange";
