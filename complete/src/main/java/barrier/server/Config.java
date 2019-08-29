@@ -36,7 +36,10 @@ public class Config {
                 .log()
                 .handle(Amqp.outboundAdapter(amqpTemplate())
                         .exchangeName("barrierExchange")
-                        .routingKey("barrierKey"))
+                        .routingKey("barrierKey")
+                        .confirmAckChannel(confirmAckChannel())
+                        .confirmCorrelationExpression("payload")
+                )
                 .get();
     }
 
@@ -58,5 +61,21 @@ public class Config {
         rabbitTemplate.setMandatory(true);
         return rabbitTemplate;
     }
+
+    @Bean
+    public DirectChannel confirmAckChannel() {
+        return new DirectChannel();
+    }
+
+    @Bean
+
+    public IntegrationFlow ackChannelListener() {
+        return IntegrationFlows.from(confirmAckChannel())
+                .handle(m -> {
+                    System.out.println("ACK:" + m);
+                })
+                .get();
+    }
+
 }
 
