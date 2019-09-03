@@ -7,15 +7,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.integration.amqp.dsl.Amqp;
-import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.config.EnableIntegration;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
-import org.springframework.integration.handler.GenericHandler;
 import org.springframework.integration.http.dsl.Http;
-import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.MessageHeaders;
+import org.springframework.messaging.Message;
 
 
 @Configuration
@@ -27,19 +24,33 @@ public class Config {
         return IntegrationFlows.from(Http.inboundGateway("/spring_integration_post")
                 .requestMapping(m -> m.methods(HttpMethod.POST))
                 .requestPayloadType(String.class))
+                .log()
                 .enrich(enricherSpec -> {
-                    enricherSpec.header("correlationId", 1); //ackCorrelationId
+                    enricherSpec.headerFunction("ackCorrelationId", message -> message.getHeaders().getId()); //ackCorrelationId
                 })
-                .split(s -> s.applySequence(false).get().getT2().setDelimiters(","))
+                .split(s -> s.applySequence(true).get().getT2().setDelimiters(","))
                 .log()
-                //.barrier(1000L)
-                .log()
-                .handle(Amqp.outboundAdapter(amqpTemplate())
-                        .exchangeName("barrierExchange")
-                        .routingKey("barrierKey")
-                        .confirmAckChannel(confirmAckChannel())
-                        .confirmCorrelationExpression("payload")
+                .publishSubscribeChannel(publishSubscribeSpec -> {
+                            //publishSubscribeSpec.applySequence(true);
+                            publishSubscribeSpec.subscribe(f -> Amqp.outboundAdapter(amqpTemplate())
+                                    .exchangeName("barrierExchange")
+                                    .routingKey("barrierKey")
+                                    .confirmAckChannel(confirmAckChannel())
+                                    .confirmCorrelationFunction(Message::getPayload));
+                            publishSubscribeSpec.subscribe(flow -> {
+                                flow.handle((p, h) -> "from server: " + p);
+                            });
+                        }
                 )
+                .handle((payload, headers) -> {
+                    System.out.println("Before aggregation");
+                    return true;
+                })
+                .aggregate()
+                .handle((payload, headers) -> {
+                    System.out.println("After aggregation");
+                    return true;
+                })
                 .get();
     }
 
@@ -68,7 +79,6 @@ public class Config {
     }
 
     @Bean
-
     public IntegrationFlow ackChannelListener() {
         return IntegrationFlows.from(confirmAckChannel())
                 .handle(m -> {

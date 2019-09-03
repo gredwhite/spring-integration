@@ -3,7 +3,6 @@ package barrier.client;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.integration.config.EnableIntegration;
 import org.springframework.integration.core.MessageSource;
 import org.springframework.integration.dsl.IntegrationFlow;
@@ -19,7 +18,6 @@ import java.util.function.Consumer;
 
 @Configuration
 @EnableIntegration
-@IntegrationComponentScan
 public class Config {
 
     @Bean
